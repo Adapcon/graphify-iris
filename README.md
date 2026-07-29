@@ -63,6 +63,113 @@ graphify-out/
 
 ---
 
+## Fork Adapcon — ERP Consistem (InterSystems IRIS / ObjectScript)
+
+> Este fork acrescenta o extrator de **ObjectScript** (`.mac`, `.cls`, `.inc`) e o
+> ferramental para gerar o grafo de **um cliente CSW** ligado aos fontes padrão do ERP.
+> O upstream ([safishamsi/graphify](https://github.com/safishamsi/graphify)) não mantém
+> esse suporte; a branch `v8` deste fork segue idêntica à dele, então "Sync fork" nunca
+> conflita.
+
+### Setup do zero
+
+```powershell
+git clone https://github.com/Adapcon/graphify-iris.git
+cd graphify-iris
+uv sync                      # ou: python -m venv .venv; .venv\Scripts\pip install -e .
+```
+
+Requisitos: Python ≥ 3.10 e o workspace CSW em disco (`C:\workspacecsw\projetos`, com as
+pastas de versão `7.5/`, `COMP-7.0/` e `DESENV/`). Nenhuma chave de LLM é necessária — a
+extração de código é 100% AST local.
+
+Se o seu workspace está em outro lugar:
+
+```powershell
+$env:GRAPHIFY_CSW_WORKSPACE = "D:\csw\projetos"   # padrão: C:\workspacecsw\projetos
+$env:GRAPHIFY_CSW_OUT       = "D:\grafos"         # padrão: C:\graphify-csw
+```
+
+### Gerar o grafo de um cliente
+
+```powershell
+.venv\Scripts\python.exe scripts\csw_grafo_cliente.py CO
+```
+
+Sem argumento ele pergunta a conta. Opções: `--versao 7.6` (o padrão vem do `pomcs.xml`
+do cliente), `--cluster` (gera `GRAPH_REPORT.md` com comunidades e god nodes),
+`--sem-fechamento` (só a customização, rápido), `--out DIR`.
+
+O script faz quatro coisas, e a terceira é a que importa:
+
+1. extrai `DESENV/custom/<conta>`;
+2. lê os nós externos do resultado — são exatamente os nomes que faltam;
+3. resolve esses nomes contra `<versão>/csw<vv>`, `COMP-x.y` e os produtos em `DESENV`,
+   e **re-extrai tudo numa única passada**;
+4. grava `<out>/<CONTA>/graphify-out/graph.json`.
+
+O passo 3 é obrigatório porque uma referência ObjectScript nomeia uma rotina/classe, não
+um caminho: o resolvedor casa esses nomes depois que o corpus inteiro foi extraído, então
+arquivo que não entrou na mesma extração vira stub. Juntar dois grafos prontos com
+`merge-graphs` **não** liga as pontas — ele prefixa os ids por repositório de propósito.
+
+Não é preciso o ERP inteiro (94.904 arquivos na 7.5 dariam ~1,9M nós). O fechamento de
+dependência traz só o que a customização chama. Medido no cliente CO:
+
+| | só a customização | fechado |
+|---|---|---|
+| arquivos | 22.732 | 24.813 (+9%) |
+| nós / arestas | 371k / 1,06M | 516k / 1,43M |
+| **arestas em stub** | **324.226 (31%)** | **14.397 (1,0%)** |
+| `graph.json` | 541 MB | 550 MB |
+
+E o efeito prático: `ObterItemComprado()` deixa de apontar para o stub `CCTCPRG001` e passa
+a apontar para `VerDadosGerais()` em `7.5/csw75/rotinas/CCTCP/CCTCPRG001.mac:L833` — com
+precisão de label, não de arquivo.
+
+### Consultar
+
+```powershell
+$env:GRAPHIFY_MAX_GRAPH_BYTES = "4GB"    # grafos > 512 MB (CO precisa; GB não)
+$G = "C:\graphify-csw\CO\graphify-out\graph.json"
+
+# quem chama uma label/método, com path:linha
+.venv\Scripts\python.exe -m graphify affected "VerDadosGerais()" --graph $G --relation calls --depth 1
+
+# os dois sentidos de um nó (<-- quem chama, --> o que ele chama)
+.venv\Scripts\python.exe -m graphify explain "Asco.Eco.Core.Pedido" --graph $G
+
+# hubs do cliente
+.venv\Scripts\python.exe -m graphify god-nodes --graph $G --top 15
+
+# nome de label repetido (`0000`, `9999`) — o CLI desiste; aqui qualifica-se pelo arquivo
+.venv\Scripts\python.exe scripts\csw_quem_chama.py $G "9999()" --em RGCOCNT600
+
+# quem lê/grava uma global, com leitura e gravação separadas
+.venv\Scripts\python.exe scripts\csw_quem_chama.py $G "^ASCOECO" --relacao references
+```
+
+### O que este fork entende de ObjectScript
+
+Rótulos de rotina, membros de classe, `$$Label^ROUTINE` / `do ^ROTINA` /
+`##class(Pkg.Cls).Metodo()` resolvidos entre arquivos, nomes de classe não qualificados
+resolvidos pelo pacote do arquivo e seus `Import`, `^GLOBAL` com contexto de leitura e
+gravação, `#include` de macros, e callbacks passados como string (`"9100SN^ORDER680"`).
+
+Três limites que valem saber:
+
+- **Sentido inverso é parcial.** O fechamento resolve *customização → padrão*. Para "quem
+  no ERP inteiro chama `CCTCPRG001`" seria preciso todo `CC*`; nesse caso some o módulo
+  padrão de interesse ao scan.
+- **`graph.html` sai só até 5.000 nós** (`GRAPHIFY_VIZ_NODE_LIMIT` levanta o teto, mas um
+  force-graph com dezenas de milhares de nós não é navegável). Para clientes grandes, o
+  `GRAPH_REPORT.md` e as consultas de terminal são o caminho.
+- **Nome de label colide** (`0000`, `9999`, `1100ON` existem em quase toda rotina de tela):
+  13% dos labels se repetem mesmo dentro de um só customizador. Use `csw_quem_chama.py
+  --em <ROTINA>` nesses casos.
+
+---
+
 ## See it in action
 
 <p align="center">
