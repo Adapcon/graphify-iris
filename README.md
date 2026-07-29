@@ -137,6 +137,40 @@ E o efeito prático: `ObterItemComprado()` deixa de apontar para o stub `CCTCPRG
 a apontar para `VerDadosGerais()` em `7.5/csw75/rotinas/CCTCP/CCTCPRG001.mac:L833` — com
 precisão de label, não de arquivo.
 
+### Gerar o grafo de um subsistema do padrão
+
+O irmão do script anterior, para o ERP padrão em vez de um cliente — escopo por prefixo de
+módulo dentro de uma árvore de versão:
+
+```powershell
+.venv\Scripts\python.exe scripts\csw_grafo_modulo.py CCT --versao 8.1   # têxtil
+.venv\Scripts\python.exe scripts\csw_grafo_modulo.py CCPV --versao 7.5  # pedido de venda
+```
+
+`CCT` pega os 99 diretórios `rotinas/CCT*` da 8.1 (11.386 rotinas). Sai em
+`<out>\<VERSÃO>-<PREFIXO>`. Medido no têxtil: 12.511 arquivos com o fechamento → 360.905
+nós, 1.144.309 arestas, 1,5% em stub, 315s.
+
+Classes não entram por regra de nome: o mapeamento rotina→pacote é irregular (`CCTCO` tem
+`classescls/TCo`, `CCTTGT` não tem `TTgt`), então quem decide é o fechamento — a classe
+entra quando o código do módulo a referencia.
+
+### Níveis de fechamento (`--hops`)
+
+Os dois scripts aceitam `--hops N` (padrão 1). O hop 1 traz o que o *seu* código chama; o
+hop 2 traz o que essas rotinas chamam. O que melhora é a proporção, não a contagem
+absoluta — cada nível resolve o que o anterior pediu, e os arquivos novos têm a própria
+fronteira:
+
+| cliente GB | hop 1 | hop 2 |
+|---|---|---|
+| arquivos | 949 | 2.038 |
+| arestas | 93.756 | 221.275 |
+| em stub | 4.382 (4,7%) | 6.323 (2,9%) |
+
+O resíduo nunca vai a zero: sobram nomes que não existem em árvore alguma — os placeholders
+`*zzz` do framework (`$$ver^CCTCzzz`, 4.767 arestas no têxtil) e referências mortas.
+
 ### Consultar
 
 ```powershell
