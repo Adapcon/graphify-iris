@@ -1,0 +1,21 @@
+ROUTINE ORDER680
+ORDER680	; 07/2026 - ORDER LOOKUP SCREEN
+	;
+	#include %ERPMACROS
+	;
+0000	; Open the screen
+	$$$VAR
+	new sc,obj,tabLine
+	;
+	do Initialize^ORDER680RG(1)
+	set sc=$$Build^ORDER680RG(1,.tabLine)
+	;
+	set sc=##class(Erp.Sample).save(1,2)
+	set obj=##class(%Library.File).%New("x")
+	;
+	do ME^%ERPUI("Done")
+	do Confirm^%ERPUI(,,,"Are you sure?",,"9100SN^ORDER680")
+	quit
+	;
+9100SN	; Confirmation callback
+	quit

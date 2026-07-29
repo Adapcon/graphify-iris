@@ -35,6 +35,21 @@ def test_every_registry_extractor_is_reexported_from_facade():
     assert not diverged, f"facade object diverges from registry: {diverged}"
 
 
+def test_objectscript_registered():
+    # ObjectScript was added directly in extractors/ (never lived in extract.py),
+    # so the same identity guard applies to all three of its entry points.
+    from graphify.extractors.objectscript import (
+        extract_objectscript,
+        extract_objectscript_class,
+        extract_objectscript_include,
+    )
+
+    assert facade.extract_objectscript is extract_objectscript
+    assert LANGUAGE_EXTRACTORS["objectscript"] is extract_objectscript
+    assert LANGUAGE_EXTRACTORS["objectscript_class"] is extract_objectscript_class
+    assert LANGUAGE_EXTRACTORS["objectscript_include"] is extract_objectscript_include
+
+
 def test_terraform_migrated():
     # The concrete anchor from #1721: extract_terraform lives in its own module,
     # and both the facade and the registry point at that one object.

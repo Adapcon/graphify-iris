@@ -1,0 +1,61 @@
+ROUTINE SAMPLEIRIS
+SAMPLEIRIS	; 07/2026 - SAMPLE - RULES
+	;
+	#include %ERPMACROS
+	;
+	; Read one order
+	;
+GetOrder(company,orderNo,orderData)	;
+	$$$VAR
+	new sc
+	;
+	set orderData=$get(^SAMPLEORDER(company,orderNo))
+	if orderData="" quit $$$OK
+	;
+	set sc=$$ValidateOrder(orderData)
+	;
+	quit $$$OK
+	;
+	; Validate one order
+	;
+ValidateOrder(orderData)	;
+	$$$VAR
+	new status
+	;
+	set status=$piece(orderData,z,3)
+	if status'=1 do ShowError^%ERPUI("Invalid order")
+	;
+	quit $$$OK
+	;
+	; Write one order
+	;
+SaveOrder(company,orderNo,orderData)	;
+	$$$VAR
+	new sc,obj
+	;
+	set ^SAMPLEORDER(company,orderNo)=orderData
+	kill ^SAMPLETMP(company)
+	;
+	set obj=##class(Erp.SampleClass).%New()
+	set sc=##class(Erp.SampleClass).save(company,orderNo)
+	;
+	set sc=$$WriteLog^SAMPLEIRISRG(company)
+	do Audit^SAMPLEIRISRG(company,orderNo)
+	;
+	; A global named as data, then used indirectly — not a callback.
+	new glb
+	set glb="^SAMPLELOG"
+	set @glb@(company)=orderNo
+	;
+	quit $$$OK
+	;
+9000	; Close the screen
+	do Confirm^%ERPUI(,,,"Are you sure?",,"9100SN^SAMPLEIRIS")
+	quit
+	;
+9100SN	; Confirmation callback
+	; `^` is also the $piece delimiter: this is a data list, not a callback.
+	write $piece("No^Yes",z,flag+1)
+	do ^%ERPLOOKUP(1,15,8,"ORDER")
+	goto 9000
+	quit

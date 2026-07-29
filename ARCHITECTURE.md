@@ -63,6 +63,13 @@ Every extractor returns:
 4. Add the tree-sitter package to `pyproject.toml` dependencies.
 5. Add a fixture file to `tests/fixtures/` and tests to `tests/test_languages.py`.
 
+Four variations on that recipe:
+
+- **No tree-sitter grammar on PyPI** (Salesforce Apex, InterSystems IRIS ObjectScript): write a line-oriented regex extractor in `graphify/extractors/<lang>.py`, register it in `graphify/extractors/__init__.py`, re-export it from `extract.py`, and skip step 4. When the suffix is already claimed by another language (`.cls` is Apex *and* IRIS, `.inc` is Pascal *and* IRIS), keep the existing dispatch and reroute in `_get_extractor()` only on a marker that is illegal in the other language.
+- **References that name a symbol rather than a path** (ObjectScript's `$$Label^ROUTINE`, `##class(Pkg.Cls).Method()`): a single file cannot know which file holds the target. Emit a `raw_calls` record and bind it in a corpus-wide pass registered in `graphify/resolver_registry.py` (see `graphify/objectscript_resolution.py`), rather than guessing per file. Anything the reference resolves *relative to* (ObjectScript's package + `Import` search path) is known only to the referencing file, so stamp it on the record — the resolver cannot reconstruct it.
+- **Data entities shared by many files** (an IRIS `^GLOBAL`): emit one sourceless node per entity, so the colliding-id pass cannot split it into one copy per referencing file. Sourceless also means "unresolved stub" to `_rewire_unique_stub_nodes`, which would merge the entity into a same-named code definition, so such nodes need a recognizable label shape to be skipped there (`^`-leading, for IRIS).
+- **Identifier styles that collide across languages** (ObjectScript labels like `Set`, `New`, `0000`): add the suffix to `_LANG_FAMILY_BY_EXT` in `extract.py`, or the shared name-only call pass will bind another language's reference to your definitions. A suffix shared with another language cannot be listed, since the family would apply to that language too.
+
 ## Security
 
 All external input passes through `graphify/security.py` before use:
