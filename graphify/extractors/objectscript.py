@@ -146,6 +146,28 @@ def _is_system_type(name: str) -> bool:
     return name.startswith("%")
 
 
+def _is_routine_shaped(name: str) -> bool:
+    """Whether a name can be an IRIS ROUTINE name rather than an ordinary word.
+
+    `^` is also the conventional `$piece` delimiter in this dialect (the `$$$VAR`
+    idiom sets `z="^"`), so a DATA list like `$piece("Nao^Sim",z,i)` or
+    `$piece("Percentual^Valor",z,i)` has the exact shape of a `Label^ROUTINE`
+    callback string, and reading it as one invents a call to a routine named `Sim`.
+    A routine name is upper-case, optionally with digits and a lower-case variant
+    suffix (`CCEPI160a`, `CCCGI999global`); a capitalized word is not. Measured over
+    68,545 routines in a real ERP workspace: 0.16% carry any lower-case letter, and
+    every one of those also carries digits — so requiring "no lower-case, or has a
+    digit" keeps every real name and rejects the prose.
+
+    Only the string-literal heuristic needs this. A syntactic `do Label^MyRoutine`
+    is a call whatever its spelling.
+    """
+    core = name.lstrip("%")
+    if not core:
+        return False
+    return any(c.isdigit() for c in core) or core.isupper()
+
+
 def _canonical_name(name: str) -> str:
     """Fold an IRIS routine/include name to its lookup key.
 
@@ -452,7 +474,7 @@ def _scan_line(
     for literal in strings:
         text = literal.strip()
         cb = _CALLBACK_STRING_RE.match(text)
-        if cb:
+        if cb and _is_routine_shaped(cb.group("routine")):
             # Always deferred, even when the label exists in THIS file: the string
             # names its routine explicitly, and a same-named label here would
             # otherwise hijack a callback aimed at another routine. The resolver

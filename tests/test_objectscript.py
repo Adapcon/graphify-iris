@@ -194,6 +194,18 @@ def test_bare_caret_string_is_a_global_reference_not_a_call():
     assert _contexts(r, "references", "^SAMPLELOG") == {"global_name_string"}
 
 
+def test_piece_delimiter_string_is_not_a_callback():
+    # `$piece("No^Yes",z,i)`: `^` is this dialect's `$piece` delimiter (the `$$$VAR`
+    # idiom sets `z="^"`), so a data list has the exact shape of a `Label^ROUTINE`
+    # callback. A routine name is upper-case and/or digit-bearing; a capitalized
+    # word is prose, and reading it as a callback invents a routine named `Yes`.
+    r = extract_objectscript(ROUTINE)
+    assert not _raw(r, kind="routine", routine="Yes")
+    assert not [rc for rc in r["raw_calls"] if rc.get("label") == "No"]
+    # The real callback in the same file still lands.
+    assert _raw(r, kind="routine", routine="SAMPLEIRIS", label="9100SN")
+
+
 def test_comment_text_produces_nothing():
     r = extract_objectscript(ROUTINE)
     # "Confirmation callback" and friends live after `;` and must be invisible.

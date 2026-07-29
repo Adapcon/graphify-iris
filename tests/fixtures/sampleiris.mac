@@ -54,6 +54,8 @@ SaveOrder(company,orderNo,orderData)	;
 	quit
 	;
 9100SN	; Confirmation callback
+	; `^` is also the $piece delimiter: this is a data list, not a callback.
+	write $piece("No^Yes",z,flag+1)
 	do ^%ERPLOOKUP(1,15,8,"ORDER")
 	goto 9000
 	quit
