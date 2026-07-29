@@ -23,8 +23,8 @@ exata do que falta — para o CO, 2.081 arquivos (+9%), que derrubaram os stubs 
 O que ele faz, em ordem:
     1. extrai a customizacao do cliente (`DESENV/custom/<conta>`);
     2. le os nomes externos do resultado;
-    3. descobre a versao do ERP por EVIDENCIA — qual arvore (7.5/7.6/8.0/...) resolve
-       mais desses nomes — ou usa a que voce passar em `--versao`;
+    3. le a versao do ERP no `pomcs.xml` do cliente (ou usa `--versao`) e resolve os
+       nomes contra essa arvore + os componentes + os produtos em `DESENV`;
     4. extrai de novo, agora com customizacao + fechamento, numa unica passada (e o unico
        jeito das arestas cruzarem);
     5. grava `<out>/graphify-out/graph.json` + `.graphify_root`, e opcionalmente clusteriza.
@@ -46,7 +46,7 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
 WORKSPACE_PADRAO = Path(os.environ.get("GRAPHIFY_CSW_WORKSPACE", r"C:\workspacecsw\projetos"))
-OUT_PADRAO = Path(os.environ.get("GRAPHIFY_CSW_OUT", r"C:\graphify-csw"))
+OUT_PADRAO = Path(os.environ.get("GRAPHIFY_CSW_OUT", r"C:\workspacecsw\graphify-csw"))
 SUFFIXES = (".mac", ".cls", ".inc")
 # Componentes por familia de versao (CLAUDE.md: 7.x -> cswutil70, 8.x -> cswutil80).
 COMPONENTES = {"7": "COMP-7.0", "8": "COMP-8.0"}

@@ -12,9 +12,9 @@ Uso:
   python scripts/csw_quem_chama.py <graph.json> "^CGIGEN" --relacao references
 
 Exemplos (grafos gerados por scripts/csw_grafo_cliente.py):
-  python scripts/csw_quem_chama.py C:/graphify-csw/CO/graphify-out/graph.json "ObterItemComprado()"
-  python scripts/csw_quem_chama.py C:/graphify-csw/CO/graphify-out/graph.json "9999()" --em RGCOCNT600
-  python scripts/csw_quem_chama.py C:/graphify-csw/CO/graphify-out/graph.json "^ASCOECO" --relacao references
+  python scripts/csw_quem_chama.py C:/workspacecsw/graphify-csw/CO/graphify-out/graph.json "ObterItemComprado()"
+  python scripts/csw_quem_chama.py C:/workspacecsw/graphify-csw/CO/graphify-out/graph.json "9999()" --em RGCOCNT600
+  python scripts/csw_quem_chama.py C:/workspacecsw/graphify-csw/CO/graphify-out/graph.json "^ASCOECO" --relacao references
 """
 from __future__ import annotations
 

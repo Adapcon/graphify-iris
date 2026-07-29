@@ -74,8 +74,16 @@ graphify-out/
 ### Setup do zero
 
 ```powershell
+# 1. uv (gerenciador de ambiente/dependências)
+winget install astral-sh.uv
+#    sem winget: irm https://astral.sh/uv/install.ps1 | iex
+
+# 2. clonar ao lado do workspace CSW
+cd C:\workspacecsw
 git clone https://github.com/Adapcon/graphify-iris.git
 cd graphify-iris
+
+# 3. dependências
 uv sync                      # ou: python -m venv .venv; .venv\Scripts\pip install -e .
 ```
 
@@ -83,11 +91,13 @@ Requisitos: Python ≥ 3.10 e o workspace CSW em disco (`C:\workspacecsw\projeto
 pastas de versão `7.5/`, `COMP-7.0/` e `DESENV/`). Nenhuma chave de LLM é necessária — a
 extração de código é 100% AST local.
 
-Se o seu workspace está em outro lugar:
+Ao final você tem o repo em `C:\workspacecsw\graphify-iris` e os grafos irão para
+`C:\workspacecsw\graphify-csw\<CONTA>` — tudo sob `C:\workspacecsw`, junto do workspace.
+Se preferir outros caminhos:
 
 ```powershell
 $env:GRAPHIFY_CSW_WORKSPACE = "D:\csw\projetos"   # padrão: C:\workspacecsw\projetos
-$env:GRAPHIFY_CSW_OUT       = "D:\grafos"         # padrão: C:\graphify-csw
+$env:GRAPHIFY_CSW_OUT       = "D:\grafos"         # padrão: C:\workspacecsw\graphify-csw
 ```
 
 ### Gerar o grafo de um cliente
@@ -131,7 +141,7 @@ precisão de label, não de arquivo.
 
 ```powershell
 $env:GRAPHIFY_MAX_GRAPH_BYTES = "4GB"    # grafos > 512 MB (CO precisa; GB não)
-$G = "C:\graphify-csw\CO\graphify-out\graph.json"
+$G = "C:\workspacecsw\graphify-csw\CO\graphify-out\graph.json"
 
 # quem chama uma label/método, com path:linha
 .venv\Scripts\python.exe -m graphify affected "VerDadosGerais()" --graph $G --relation calls --depth 1
