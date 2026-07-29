@@ -1,0 +1,21 @@
+ROUTINE ORDER680RG
+ORDER680RG	; 07/2026 - ORDER LOOKUP RULES
+	;
+	#include %ERPMACROS
+	;
+Initialize(company)	;
+	$$$VAR
+	new sc
+	;
+	kill ^ORDER680(company)
+	;
+	quit $$$OK
+	;
+Build(company,tabLine)	;
+	$$$VAR
+	new sc
+	;
+	set sc=$$Initialize(company)
+	set ^ORDER680(company)=1
+	;
+	quit $$$OK

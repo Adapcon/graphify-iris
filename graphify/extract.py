@@ -23,6 +23,7 @@ from .resolver_registry import (
 )
 from .ruby_resolution import resolve_ruby_member_calls
 from .pascal_resolution import resolve_pascal_inherited_calls
+from .objectscript_resolution import resolve_objectscript_references
 
 # --- migrated to graphify/extractors/ (see graphify/extractors/MIGRATION.md) ---
 from graphify.extractors.base import (  # noqa: F401
@@ -46,6 +47,13 @@ from graphify.extractors.fortran import _cpp_preprocess, extract_fortran  # noqa
 from graphify.extractors.go import extract_go  # noqa: F401
 from graphify.extractors.json_config import extract_json  # noqa: F401
 from graphify.extractors.markdown import extract_markdown  # noqa: F401
+from graphify.extractors.objectscript import (  # noqa: F401
+    _is_objectscript_class,
+    _is_objectscript_include,
+    extract_objectscript,
+    extract_objectscript_class,
+    extract_objectscript_include,
+)
 from graphify.extractors.pascal_forms import extract_delphi_form, extract_lazarus_form  # noqa: F401
 from graphify.extractors.powershell import extract_powershell, extract_powershell_manifest  # noqa: F401
 from graphify.extractors.razor import extract_razor  # noqa: F401
@@ -1858,6 +1866,12 @@ _LANG_FAMILY_BY_EXT: dict[str, str] = {
     ".dart": "dart",
     ".sh": "shell", ".bash": "shell",
     ".ps1": "powershell", ".psm1": "powershell", ".psd1": "powershell",
+    # IRIS ObjectScript routines. Screen-driven ERP code names its labels in a
+    # style that collides freely with other languages (`Set`, `New`, `Build`,
+    # `0000`), so a family keeps a Python/JS name-only reference from binding to
+    # one. Only `.mac` is listed: `.cls` and `.inc` are shared with Apex and
+    # Pascal, whose resolution must stay exactly as it was.
+    ".mac": "objectscript",
 }
 
 
@@ -1912,6 +1926,15 @@ def _rewire_unique_stub_nodes(nodes: list[dict], edges: list[dict]) -> None:
                         _node_label_key(node, fold=True), []).append(node)
             elif _is_top_level_function_definition(node):
                 func_by_label.setdefault(key, []).append(node)
+            continue
+        # An IRIS global (`^ORDERS`) is sourceless because it is ONE entity shared by
+        # every file that touches it, not an unresolved reference waiting to be
+        # bound (see graphify/extractors/objectscript.py). Its label key drops the
+        # caret, so it matches a same-named routine LABEL — and ObjectScript names
+        # a routine after the global it maintains often enough that absorbing the
+        # global into that label deletes the data node and mislabels its edges as
+        # calls into code. No other extractor emits a `^`-leading label.
+        if str(node.get("label", "")).startswith("^"):
             continue
         stubs.append(node)
 
@@ -3026,6 +3049,21 @@ register_language_resolver(
         resolve_pascal_inherited_calls,
     )
 )
+# InterSystems IRIS ObjectScript. Unlike the receiver-typed resolvers above this
+# one is not an optional refinement: `$$Label^ROUTINE` and
+# `##class(Pkg.Cls).Method()` name a routine/class, never a path, so EVERY
+# cross-file ObjectScript edge is minted here. Lives in
+# graphify.objectscript_resolution. `.cls`/`.inc` are shared suffixes (Apex,
+# Pascal), so the pass may activate on a corpus with no IRIS code in it; it
+# claims only raw_calls stamped with its own `lang` and returns immediately when
+# there are none.
+register_language_resolver(
+    LanguageResolver(
+        "objectscript_references",
+        frozenset({".mac", ".cls", ".inc"}),
+        resolve_objectscript_references,
+    )
+)
 
 
 # Inline markdown link: [text](target "optional title"). The negative lookbehind
@@ -4131,6 +4169,10 @@ _DISPATCH: dict[str, Any] = {
     ".cshtml": extract_razor,
     ".cls": extract_apex,
     ".trigger": extract_apex,
+    # InterSystems IRIS ObjectScript. `.mac` is unambiguous; `.cls` (Apex above)
+    # and `.inc` (Pascal above) are shared suffixes rerouted by the content
+    # sniffs in _get_extractor.
+    ".mac": extract_objectscript,
 }
 
 
@@ -4280,6 +4322,16 @@ def _get_extractor(path: Path) -> Any | None:
     # mis-parsed. `.mm` is unambiguously Objective-C++ and stays on extract_objc.
     if suffix == ".m" and not _is_objc_source(path):
         return None
+    # `.cls` is Salesforce Apex OR an InterSystems IRIS class definition, and
+    # `.inc` is a Pascal include OR an IRIS macro include. Both keep their
+    # existing routing unless the file carries an ObjectScript-only marker
+    # (`Class Pkg.Name` / `ClassMethod` / `##class(` for `.cls`, a column-0
+    # `#define`/`#include` for `.inc`), which is illegal in the other language —
+    # so a corpus with no IRIS code in it dispatches exactly as before.
+    if suffix == ".cls" and _is_objectscript_class(path):
+        return extract_objectscript_class
+    if suffix == ".inc" and _is_objectscript_include(path):
+        return extract_objectscript_include
     # Extensionless files: resolve by shebang, mirroring detect.classify_file.
     # Without this, detect labels e.g. `#!/usr/bin/env bash` CLIs as code but
     # extraction returns no extractor and the file silently contributes nothing.
