@@ -4395,7 +4395,12 @@ def _extract_single_file(args: tuple) -> tuple[int, dict]:
     # (e.g. a transient batch/parallel hiccup). Caching it makes the empty
     # byte-stable across runs and silently blinds affected/explain to and
     # through the file (#1666); skipping the write lets a rerun self-heal.
-    if not bypass_cache and "error" not in result and result.get("nodes"):
+    # A `skipped` result is the exception: the extractor looked and decided the
+    # file carries no graph signal (data JSON, #1224). That verdict is stable,
+    # so cache it instead of re-parsing the file on every run (#2258).
+    if not bypass_cache and "error" not in result and (
+        result.get("nodes") or result.get("skipped")
+    ):
         save_cached(path, result, root, cache_root=cache_location)
     return idx, result
 
@@ -4539,8 +4544,11 @@ def _extract_sequential(
         bypass_cache = path.suffix in _JS_CACHE_BYPASS_SUFFIXES
         # XAML boundary anchors on `root` (the corpus), not the cache location.
         result = _safe_extract_with_xaml_root(extractor, path, root)
-        # See _extract_single_file: don't cache an anomalous zero-node result (#1666).
-        if not bypass_cache and "error" not in result and result.get("nodes"):
+        # See _extract_single_file: don't cache an anomalous zero-node result
+        # (#1666), but do cache a deliberate `skipped` verdict (#2258).
+        if not bypass_cache and "error" not in result and (
+            result.get("nodes") or result.get("skipped")
+        ):
             save_cached(path, result, root, cache_root=cache_location)
         per_file[idx] = result
     if total_files >= _PROGRESS_INTERVAL:
@@ -4660,10 +4668,14 @@ def extract(
     # #1666: surface any source file an extractor accepted but that produced zero
     # nodes (not even a file node). Such a file is silently absent from the graph,
     # so affected/explain are blind to and through it with no other signal.
+    # A result carrying `skipped` is exempt: the extractor deliberately declined
+    # the file (data JSON, #1224), so it is a designed outcome, not an anomaly —
+    # reporting it told users to file a bug for working-as-intended behaviour, and
+    # the "a re-run will retry them" advice could never clear it (#2258).
     _empty_sources: list[str] = []
     for i, _p in enumerate(paths):
         _res = per_file[i] or {}
-        if _res.get("nodes") or _res.get("error"):
+        if _res.get("nodes") or _res.get("error") or _res.get("skipped"):
             continue
         if _get_extractor(_p) is not None:
             _empty_sources.append(str(_p))
