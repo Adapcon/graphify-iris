@@ -38,5 +38,15 @@ scripts/benchmark_kimi*.json
 scripts/benchmark_kimi*.py
 paper/
 
+# MSBuild output from the C#/XAML fixtures. tests/fixtures/sample.csproj and
+# xaml_viewmodel/App.csproj are real project files, so anything that restores or
+# builds them (an IDE opening the folder, a dotnet CLI run) drops obj/ and bin/
+# trees of generated .cs and .cache next to the tracked fixtures.
+# Scoped to tests/fixtures rather than a bare obj/ + bin/: this repo extracts
+# arbitrary corpora, and a fixture legitimately named obj/ or bin/ -- proving
+# graphify skips build dirs, say -- must stay committable.
+tests/fixtures/**/obj/
+tests/fixtures/**/bin/
+
 # macOS Finder metadata
 .DS_Store
